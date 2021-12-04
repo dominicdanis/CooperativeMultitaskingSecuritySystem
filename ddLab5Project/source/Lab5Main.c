@@ -85,6 +85,12 @@ void main(void){
     }
 }
 
+/*
+ * ROUGHLY - right now both alarm and disarmed states work well. Need to figure out disarm
+ *
+ * Think about some sort of way to set offset in LED.C
+ * */
+
 static void lab5ControlTask(void){
     static INT8U control_counter = 0;
     INT8C kchar;
@@ -102,6 +108,7 @@ static void lab5ControlTask(void){
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Disarmed);
                     LEDSetState(3);
+                    LEDSetPeriod(2);
                 }
                 else if(sense == TSI_11_ON){                              //if we dont change state toggle LED (period 100ms)
                     LEDSetState(0);
@@ -110,10 +117,9 @@ static void lab5ControlTask(void){
                     LEDSetState(1);
                 }
                 else if(sense == TSI_BOTH_ON){
-                    LEDSetState(3);
+                    LEDSetState(2);
                 }
                 else{}
-                LEDSetPeriod(0);
                 //write alarm mode
                 break;
             case ARMED:
@@ -123,11 +129,13 @@ static void lab5ControlTask(void){
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Disarmed);
                     LEDSetState(3);
+                    LEDSetPeriod(2);
                 }
                 else if(sense == TSI_11_ON || sense == TSI_12_ON || sense == TSI_BOTH_ON){
                     lab5CurrentState = ALARM;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Alarm);
+                    LEDSetPeriod(0);
                     //change the alarm wave
                 }
                 else{
@@ -135,21 +143,25 @@ static void lab5ControlTask(void){
                 }
                 break;
             case DISARMED:
+                //DISARM DOES NOT LATCH
                 if(kchar == ACODE){
                     lab5CurrentState = ARMED;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Armed);
-                    LEDSetState(3);
+                    LEDSetState(4);
+                    LEDSetPeriod(1);
                 }
-                else{}
-                if(sense == TSI_11_ON){
-
+                else if(sense == TSI_11_ON){
+                    LEDSetState(0);
                 }
-                else{}
-                if(sense == TSI_11_ON){
-
+                else if(sense == TSI_12_ON){
+                    LEDSetState(1);
+                }
+                else if(sense == TSI_BOTH_ON){
+                    LEDSetState(2);
                 }
                 else{
+                    LEDSetState(3);
                     //write the alarm mode
                 }
                 break;
