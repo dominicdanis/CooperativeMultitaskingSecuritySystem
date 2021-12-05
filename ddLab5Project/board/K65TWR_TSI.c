@@ -82,7 +82,7 @@ void TSIChCalibration(INT8U channel){
 void TSITask(void){
 
     static TSI_TASK_STATE_T tsiTaskState = PROC1START2;
-
+    DB3_TURN_ON();
     tsiStartScan(BRD_PAD1_CH);
 
     switch(tsiTaskState){
@@ -102,7 +102,7 @@ void TSITask(void){
         tsiTaskState = PROC1START2;
         break;
     }
-
+    DB3_TURN_OFF();
 }
 
 /********************************************************************************

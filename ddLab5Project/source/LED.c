@@ -4,10 +4,12 @@
 
 //check out the lab where we used LED's for information about initializing writing to LEDs
 typedef enum {D8, D9, BOTH, OFF, OFFSET}LED_STATES;  //consider an alternating state
-typedef enum {TENTH , QUART, HALF}LED_PERS;                                          //Names represent fraction of a second
+typedef enum {HUND, TENTH , QUART, HALF}LED_PERS;                                          //Names represent fraction of a second
 static LED_STATES CurrentState = OFF;
 static LED_PERS CurrentPeriod = HALF;
 
+//consider resetting the LEDs to both off before changing state
+//consider a state for when we switching states (for the period) that was when we're transitioning we can make sure we have the offset
 
 void LEDSetState(INT8U active){
     if(active==0){
@@ -49,14 +51,17 @@ void LEDSetState(INT8U active){
 }
 
 void LEDSetPeriod(INT8U period){
-    if(period==0){
+    if(period == 0){
         CurrentPeriod = TENTH;
     }
-    else if(period==1){
-        CurrentPeriod == QUART;
+    else if(period == 1){
+        CurrentPeriod = QUART;
     }
-    else if(period==2){
-        CurrentPeriod == HALF;
+    else if(period == 2){
+        CurrentPeriod = HALF;
+    }
+    else if(period == 3){
+        CurrentPeriod = HUND;
     }
     else{}
 }
@@ -69,15 +74,18 @@ void LEDInit(void){
 
 void LEDTask(void){
     static INT8U led_count = 0;
+    DB4_TURN_ON();
     switch(CurrentPeriod){
         case TENTH:                             //if in this state execute every 100ms
             if(led_count>=10){
                 switch(CurrentState){
                     case D8:
                         LED8_TOGGLE();
+                        LED9_TURN_OFF();
                         break;
                     case D9:
                         LED9_TOGGLE();
+                        LED8_TURN_OFF();
                         break;
                     case BOTH:
                         LED8_TOGGLE();
@@ -86,6 +94,11 @@ void LEDTask(void){
                     case OFF:
                         LED8_TURN_OFF();
                         LED9_TURN_OFF();
+                        break;
+                    case OFFSET:
+                        LED8_TURN_ON();
+                        LED9_TURN_OFF();
+                        break;
                     default:
                         break;
                 }
@@ -116,9 +129,11 @@ void LEDTask(void){
                 switch(CurrentState){
                     case D8:
                         LED8_TOGGLE();
+                        LED9_TURN_OFF();
                         break;
                     case D9:
                         LED9_TOGGLE();
+                        LED8_TURN_OFF();
                         break;
                     case BOTH:
                         LED8_TOGGLE();
@@ -128,6 +143,10 @@ void LEDTask(void){
                         LED8_TURN_OFF();
                         LED9_TURN_OFF();
                         break;
+                    case OFFSET:
+                        LED8_TURN_ON();
+                        LED9_TURN_OFF();
+                        break;
                     default:
                         break;
                 }
@@ -135,9 +154,20 @@ void LEDTask(void){
             }
             else{}
             break;
+        case HUND:
+            switch(CurrentState){
+                case OFFSET:
+                    LED8_TURN_ON();
+                    LED9_TURN_OFF();
+                    break;
+                default:
+                    break;
+            }
+            led_count = 0;
+            break;
         default:
             break;
     }
     led_count++;
-
+    DB4_TURN_OFF();
 }

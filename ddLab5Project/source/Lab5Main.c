@@ -15,6 +15,7 @@
 #include "LCD.h"
 #include "LED.h"
 #include "K65TWR_TSI.h"
+#include "AlarmWave.h"
 
 
 /*Defined Constants*/
@@ -35,29 +36,8 @@ static const INT8C lab5Armed[] = "ARMED";
 /*Private Variables*/
 static SECURE_STATES lab5CurrentState = DISARMED;
 static INT8U lab5WaveToggle = 0;
-
-//static INT16U lab5SensorFlag; - delete maybe
-
 /*Private function prototype*/
 static void lab5ControlTask(void);
-
-
-
-/* My idea for a process:
- * LED Display: Turns on the LED's will happen at a varying period either by using some sort of state machine
- * or counter to write on/off the LED's
- *
- * Sensor Scan: Will scan the sensor to see if it has been pushed or not, have to figure out that scanning proccess and
- * how we will communicate back that it has been touched - consider doing something similar to how we do it in Key
- *
- * Figuring out a timeslice scheduler:
- * Tasks happen every
- * control task: 50ms
- * KeyTask: 10ms
- * TSI sensor stuff tentatively works, next work on LED
- *
- * */
-
 
 void main(void){
     INT16U checksum;
@@ -68,7 +48,6 @@ void main(void){
     GpioDBugBitsInit();
     TSIInit();
     LEDInit();
-    //init LEDs
     checksum = MemChkSum((INT8U *)START_ADDR, (INT8U *)END_ADDR);
     LcdCursorMove(LCD_ROW_2, LCD_COL_1);
     LcdCursorMode(0,0);
@@ -85,11 +64,8 @@ void main(void){
     }
 }
 
-/*
- * ROUGHLY - right now both alarm and disarmed states work well. Need to figure out disarm
- *
- * Think about some sort of way to set offset in LED.C
- * */
+
+//figure out how to make the function shorter - can be a max of 60 lines
 
 static void lab5ControlTask(void){
     static INT8U control_counter = 0;
@@ -97,73 +73,143 @@ static void lab5ControlTask(void){
     INT16U sense;
     DB1_TURN_ON();
     control_counter++;
-    if(control_counter>=5){
+    if(control_counter>=5){                                                 //every 5 time slices (50ms)
         control_counter = 0;
-        kchar = KeyGet();
-        sense = TSIGetSensorFlags();
+        kchar = KeyGet();                                                   //key holds keys pressed
+        sense = TSIGetSensorFlags();                                        //sense holds which sensors pressed
         switch(lab5CurrentState){
             case ALARM:
                 if(kchar == DCODE){
+                    lab5WaveToggle = 0;
                     lab5CurrentState = DISARMED;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Disarmed);
                     LEDSetState(3);
-                    LEDSetPeriod(2);
+                    LEDSetPeriod(3);
+                    AlarmWaveSetMode(0);
                 }
-                else if(sense == TSI_11_ON){                              //if we dont change state toggle LED (period 100ms)
+                else if(sense == TSI_11_ON){
                     LEDSetState(0);
+                    LEDSetPeriod(0);
+                    lab5WaveToggle++;
+                    if(lab5WaveToggle<=10){
+                        AlarmWaveSetMode(0);
+                    }
+                    else{
+                        AlarmWaveSetMode(1);
+                        if(lab5WaveToggle == 20){
+                            lab5WaveToggle = 0;
+                        }
+                    else{}
+                    }
                 }
                 else if(sense == TSI_12_ON){
                     LEDSetState(1);
+                    LEDSetPeriod(0);
+                    lab5WaveToggle++;
+                    if(lab5WaveToggle<=10){
+                        AlarmWaveSetMode(0);
+                    }
+                    else{
+                        AlarmWaveSetMode(1);
+                        if(lab5WaveToggle == 20){
+                            lab5WaveToggle = 0;
+                    }
+                    else{}
+                    }
                 }
                 else if(sense == TSI_BOTH_ON){
                     LEDSetState(2);
+                    LEDSetPeriod(0);
+                    lab5WaveToggle++;
+                    if(lab5WaveToggle<=10){
+                        AlarmWaveSetMode(0);
+                    }
+                    else{
+                        AlarmWaveSetMode(1);
+                        if(lab5WaveToggle == 20){
+                            lab5WaveToggle = 0;
+                        }
+                        else{}
+                    }
                 }
-                else{}
-                //write alarm mode
+                else{
+                    LEDSetPeriod(0);
+                    lab5WaveToggle++;
+                    if(lab5WaveToggle<=10){
+                        AlarmWaveSetMode(0);
+                    }
+                    else{
+                        AlarmWaveSetMode(1);
+                        if(lab5WaveToggle == 20){
+                            lab5WaveToggle = 0;
+                        }
+                        else{}
+                   }
+                }
                 break;
             case ARMED:
-                //sense  = read from sensor buffer
                 if(kchar == DCODE){
                     lab5CurrentState = DISARMED;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Disarmed);
                     LEDSetState(3);
-                    LEDSetPeriod(2);
+                    LEDSetPeriod(3);
                 }
-                else if(sense == TSI_11_ON || sense == TSI_12_ON || sense == TSI_BOTH_ON){
+                else if(sense == TSI_11_ON){
                     lab5CurrentState = ALARM;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Alarm);
-                    LEDSetPeriod(0);
-                    //change the alarm wave
+                    LEDSetState(0);
+                    LEDSetPeriod(3);
+                    AlarmWaveSetMode(1);
+                }
+                else if(sense == TSI_12_ON){
+                    lab5CurrentState = ALARM;
+                    LcdDispLineClear(LCD_ROW_1);
+                    LcdDispString((INT8C *const)lab5Alarm);
+                    LEDSetState(1);
+                    LEDSetPeriod(3);
+                    AlarmWaveSetMode(1);
+                }
+                else if(sense == TSI_BOTH_ON){
+                    lab5CurrentState = ALARM;
+                    LcdDispLineClear(LCD_ROW_1);
+                    LcdDispString((INT8C *const)lab5Alarm);
+                    LEDSetState(2);
+                    LEDSetPeriod(3);
+                    AlarmWaveSetMode(1);
                 }
                 else{
-                    //write the alarm mode
+                    LEDSetState(2);
+                    LEDSetPeriod(1);
                 }
                 break;
             case DISARMED:
-                //DISARM DOES NOT LATCH
                 if(kchar == ACODE){
                     lab5CurrentState = ARMED;
                     LcdDispLineClear(LCD_ROW_1);
                     LcdDispString((INT8C *const)lab5Armed);
                     LEDSetState(4);
-                    LEDSetPeriod(1);
+                    LEDSetPeriod(3);
                 }
                 else if(sense == TSI_11_ON){
                     LEDSetState(0);
+                    LEDSetPeriod(2);
                 }
                 else if(sense == TSI_12_ON){
                     LEDSetState(1);
+                    LEDSetPeriod(2);
                 }
                 else if(sense == TSI_BOTH_ON){
                     LEDSetState(2);
+                    LEDSetPeriod(2);
                 }
                 else{
                     LEDSetState(3);
-                    //write the alarm mode
+                    LEDSetPeriod(2);
                 }
+                //write alarm wave mode regardless
                 break;
             default:
                 lab5CurrentState = DISARMED;
@@ -171,19 +217,5 @@ static void lab5ControlTask(void){
         }
     }
     else{}
-    /*some intense logic will go in here
-     * - only runs once every 5 timeslices (check)
-     * - state machine - do different things in each state
-     * - If in disarmed and A is in buffer go to armed
-     * - If in armed and D is in buffer go do disarmed
-     * - If in alarm and D is in buffer go to disarmed
-     * - If in armed and sensor is touched go to alarm
-     * - If in alarm write the sine wave - will need the period
-     * - In all other states the alarm should be in DC mode*/
-
     DB1_TURN_OFF();
 }
-
-
-
-
