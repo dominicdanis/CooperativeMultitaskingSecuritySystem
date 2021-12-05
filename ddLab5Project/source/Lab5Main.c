@@ -1,9 +1,9 @@
 /*******************************************************************************
-* Lab4Main.c - is the main module for Lab4. It contains a timeslice scheduler with 3 tasks. The purpose of this program
-* is to enable/disable a sine wave on DAC0 output, with user interface from LCD and Keypad. This module contains no public
-* resources.
+* Lab5Main.c - is the main module for Lab5. It contains a timeslice scheduler with 5 tasks. This program is a security system.
+* There are 3 main states (Disarmed, Armed and Alarm) what will display different LED patterns and DAC0 output depending on
+* user input from TSI sensors and Keypad presses.
 *
-* Author: Dominic Danis Last Edit: 11/19/2021
+* Author: Dominic Danis Last Edit: 12/5/2021
 *******************************************************************************/
 #include "MCUType.h"
 #include "BasicIO.h"
@@ -27,6 +27,8 @@
 #define TSI_11_ON 0x800
 #define TSI_12_ON 0x1000
 #define TSI_BOTH_ON 0x1800
+#define TSI_BOTH_OFF 0x0
+#define TSI_OFFSET 0x4
 /*States for system*/
 typedef enum {ARMED,DISARMED,ALARM}SECURE_STATES;
 /*Stored Constants*/
@@ -36,8 +38,9 @@ static const INT8C lab5Armed[] = "ARMED";
 /*Private Variables*/
 static SECURE_STATES lab5CurrentState = DISARMED;
 static INT8U lab5WaveToggle = 0;
-/*Private function prototype*/
+/*Private function prototypes*/
 static void lab5ControlTask(void);
+static void lab5StateTransition(SECURE_STATES state, INT16U sense);
 
 void main(void){
     INT16U checksum;
@@ -64,9 +67,9 @@ void main(void){
     }
 }
 
-
-//figure out how to make the function shorter - can be a max of 60 lines
-
+/* lab5ControlTask - has no parameters and returns nothing. Is meant to be used in a timeslice scheduler for lab5 security system control.
+ * It will make appropriate state transitions based on sensors and keypad presses and control LED's and DAC0 output.
+ * */
 static void lab5ControlTask(void){
     static INT8U control_counter = 0;
     INT8C kchar;
@@ -81,60 +84,11 @@ static void lab5ControlTask(void){
             case ALARM:
                 if(kchar == DCODE){
                     lab5WaveToggle = 0;
-                    lab5CurrentState = DISARMED;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Disarmed);
-                    LEDSetState(3);
-                    LEDSetPeriod(3);
-                    AlarmWaveSetMode(0);
-                }
-                else if(sense == TSI_11_ON){
-                    LEDSetState(0);
-                    LEDSetPeriod(0);
-                    lab5WaveToggle++;
-                    if(lab5WaveToggle<=10){
-                        AlarmWaveSetMode(0);
-                    }
-                    else{
-                        AlarmWaveSetMode(1);
-                        if(lab5WaveToggle == 20){
-                            lab5WaveToggle = 0;
-                        }
-                    else{}
-                    }
-                }
-                else if(sense == TSI_12_ON){
-                    LEDSetState(1);
-                    LEDSetPeriod(0);
-                    lab5WaveToggle++;
-                    if(lab5WaveToggle<=10){
-                        AlarmWaveSetMode(0);
-                    }
-                    else{
-                        AlarmWaveSetMode(1);
-                        if(lab5WaveToggle == 20){
-                            lab5WaveToggle = 0;
-                    }
-                    else{}
-                    }
-                }
-                else if(sense == TSI_BOTH_ON){
-                    LEDSetState(2);
-                    LEDSetPeriod(0);
-                    lab5WaveToggle++;
-                    if(lab5WaveToggle<=10){
-                        AlarmWaveSetMode(0);
-                    }
-                    else{
-                        AlarmWaveSetMode(1);
-                        if(lab5WaveToggle == 20){
-                            lab5WaveToggle = 0;
-                        }
-                        else{}
-                    }
+                    lab5StateTransition(DISARMED, sense);
                 }
                 else{
-                    LEDSetPeriod(0);
+                    LEDSetState(sense);
+                    LEDSetPeriod(10);
                     lab5WaveToggle++;
                     if(lab5WaveToggle<=10){
                         AlarmWaveSetMode(0);
@@ -145,77 +99,66 @@ static void lab5ControlTask(void){
                             lab5WaveToggle = 0;
                         }
                         else{}
-                   }
+                    }
                 }
                 break;
             case ARMED:
                 if(kchar == DCODE){
-                    lab5CurrentState = DISARMED;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Disarmed);
-                    LEDSetState(3);
-                    LEDSetPeriod(3);
+                    lab5StateTransition(DISARMED, sense);
                 }
-                else if(sense == TSI_11_ON){
-                    lab5CurrentState = ALARM;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Alarm);
-                    LEDSetState(0);
-                    LEDSetPeriod(3);
-                    AlarmWaveSetMode(1);
-                }
-                else if(sense == TSI_12_ON){
-                    lab5CurrentState = ALARM;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Alarm);
-                    LEDSetState(1);
-                    LEDSetPeriod(3);
-                    AlarmWaveSetMode(1);
-                }
-                else if(sense == TSI_BOTH_ON){
-                    lab5CurrentState = ALARM;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Alarm);
-                    LEDSetState(2);
-                    LEDSetPeriod(3);
-                    AlarmWaveSetMode(1);
+                else if(sense != TSI_BOTH_OFF){
+                    lab5StateTransition(ALARM, sense);
                 }
                 else{
-                    LEDSetState(2);
-                    LEDSetPeriod(1);
+                    LEDSetState(TSI_BOTH_ON);
+                    LEDSetPeriod(25);
                 }
                 break;
             case DISARMED:
                 if(kchar == ACODE){
-                    lab5CurrentState = ARMED;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab5Armed);
-                    LEDSetState(4);
-                    LEDSetPeriod(3);
-                }
-                else if(sense == TSI_11_ON){
-                    LEDSetState(0);
-                    LEDSetPeriod(2);
-                }
-                else if(sense == TSI_12_ON){
-                    LEDSetState(1);
-                    LEDSetPeriod(2);
-                }
-                else if(sense == TSI_BOTH_ON){
-                    LEDSetState(2);
-                    LEDSetPeriod(2);
+                    lab5StateTransition(ARMED, sense);
                 }
                 else{
-                    LEDSetState(3);
-                    LEDSetPeriod(2);
+                    LEDSetState(sense);
+                    LEDSetPeriod(50);
                 }
-                //write alarm wave mode regardless
                 break;
             default:
-                lab5CurrentState = DISARMED;
                 break;
         }
     }
     else{}
     DB1_TURN_OFF();
+}
+
+/* lab5StateTranisition takes a SECURE_STATES type and an INT16U as a parameter and returns nothing.
+ *  Based on the state it will control LED's and DAC0 output based on special behaviour for switching states*/
+static void lab5StateTransition(SECURE_STATES state, INT16U sense){
+    switch(state){
+        case ALARM:
+            lab5CurrentState = ALARM;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Alarm);
+            LEDSetState(sense);
+            LEDSetPeriod(0);
+            AlarmWaveSetMode(1);
+            break;
+        case ARMED:
+            lab5CurrentState = ARMED;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Armed);
+            LEDSetState(TSI_OFFSET);
+            LEDSetPeriod(0);
+            break;
+        case DISARMED:
+            lab5CurrentState = DISARMED;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Disarmed);
+            LEDSetState(sense);
+            LEDSetPeriod(0);
+            AlarmWaveSetMode(0);
+            break;
+        default:
+            break;
+    }
 }
