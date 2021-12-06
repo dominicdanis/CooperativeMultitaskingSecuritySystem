@@ -3,6 +3,7 @@
 * There are 3 main states (Disarmed, Armed and Alarm) what will display different LED patterns and DAC0 output depending on
 * user input from TSI sensors and Keypad presses.
 *
+* Uses several modules written by Todd Morton
 * Author: Dominic Danis Last Edit: 12/5/2021
 *******************************************************************************/
 #include "MCUType.h"
@@ -24,11 +25,6 @@
 #define DCODE 0x14
 #define START_ADDR 0x00000000
 #define END_ADDR 0x001FFFFF
-#define TSI_11_ON 0x800
-#define TSI_12_ON 0x1000
-#define TSI_BOTH_ON 0x1800
-#define TSI_BOTH_OFF 0x0
-#define TSI_OFFSET 0x4
 /*States for system*/
 typedef enum {ARMED,DISARMED,ALARM}SECURE_STATES;
 /*Stored Constants*/
@@ -51,6 +47,7 @@ void main(void){
     GpioDBugBitsInit();
     TSIInit();
     LEDInit();
+    AlarmWaveInit();
     checksum = MemChkSum((INT8U *)START_ADDR, (INT8U *)END_ADDR);
     LcdCursorMove(LCD_ROW_2, LCD_COL_1);
     LcdCursorMode(0,0);
@@ -141,14 +138,15 @@ static void lab5StateTransition(SECURE_STATES state, INT16U sense){
             LcdDispString((INT8C *const)lab5Alarm);
             LEDSetState(sense);
             LEDSetPeriod(0);
-            AlarmWaveSetMode(1);
+            AlarmWaveSetMode(0);
             break;
         case ARMED:
             lab5CurrentState = ARMED;
             LcdDispLineClear(LCD_ROW_1);
             LcdDispString((INT8C *const)lab5Armed);
-            LEDSetState(TSI_OFFSET);
+            LEDSetState(LED_OFFSET);
             LEDSetPeriod(0);
+            AlarmWaveSetMode(1);
             break;
         case DISARMED:
             lab5CurrentState = DISARMED;
@@ -156,7 +154,7 @@ static void lab5StateTransition(SECURE_STATES state, INT16U sense){
             LcdDispString((INT8C *const)lab5Disarmed);
             LEDSetState(sense);
             LEDSetPeriod(0);
-            AlarmWaveSetMode(0);
+            AlarmWaveSetMode(1);
             break;
         default:
             break;

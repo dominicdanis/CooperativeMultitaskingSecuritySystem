@@ -6,6 +6,12 @@
 #ifndef LED_H_
 #define LED_H_
 
+/*Defined constants for which sensor is on*/
+#define TSI_11_ON 0x800
+#define TSI_12_ON 0x1000
+#define TSI_BOTH_ON 0x1800
+#define TSI_BOTH_OFF 0x0
+#define LED_OFFSET 0x4
 /* LEDTask - no parameters and no returns. This is meant to be ran in a timeslice scheduler. It will turn on and off LED8 and LED9
  * based on CurrentState and delayPeriod. It also resets the LED's on a state change as long as we haven't set a default offset
  * */
