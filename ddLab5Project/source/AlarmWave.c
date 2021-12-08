@@ -1,3 +1,11 @@
+/* AlarmWave.C
+ * The purpose of this module is to output values on DAC0. It can either output a 0-3.3V sinewave
+ * or a DC 1.65V. It contains functions for intialization, setting mode and a interrput handler to output on DAC0.
+ * DAC0 writing is triggered by the PIT.
+ *
+ * Dominic Danis last edit 12/6/2021
+ * */
+
 #include "MCUType.h"
 #include "AlarmWave.h"
 #include "K65TWR_GPIO.h"

@@ -1,9 +1,10 @@
 /*******************************************************************************
-* Lab4Main.c - is the main module for Lab4. It contains a timeslice scheduler with 3 tasks. The purpose of this program
-* is to enable/disable a sine wave on DAC0 output, with user interface from LCD and Keypad. This module contains no public
-* resources.
+* Lab5Main.c - is the main module for Lab5. It contains a timeslice scheduler with 5 tasks. This program is a security system.
+* There are 3 main states (Disarmed, Armed and Alarm) what will display different LED patterns and DAC0 output depending on
+* user input from TSI sensors and Keypad presses.
 *
-* Author: Dominic Danis Last Edit: 11/19/2021
+* Uses several modules written by Todd Morton
+* Author: Dominic Danis Last Edit: 12/5/2021
 *******************************************************************************/
 #include "MCUType.h"
 #include "BasicIO.h"
@@ -13,6 +14,8 @@
 #include "SysTickDelay.h"
 #include "Key.h"
 #include "LCD.h"
+#include "LED.h"
+#include "K65TWR_TSI.h"
 #include "AlarmWave.h"
 
 /*Defined Constants*/
@@ -21,16 +24,18 @@
 #define DCODE 0x14
 #define START_ADDR 0x00000000
 #define END_ADDR 0x001FFFFF
-/*States for alarm*/
-typedef enum {ALARM_ON, ALARM_OFF}ALARM_STATES;
+/*States for system*/
+typedef enum {ARMED,DISARMED,ALARM}SECURE_STATES;
 /*Stored Constants*/
-static const INT8C lab4AlarmOn[] =  "ALARM ON";
-static const INT8C lab4AlarmOff[] = "ALARM OFF";
+static const INT8C lab5Alarm[] =  "ALARM";
+static const INT8C lab5Disarmed[] = "DISARMED";
+static const INT8C lab5Armed[] = "ARMED";
 /*Private Variables*/
-static ALARM_STATES lab4CurrentState = ALARM_OFF;
-static INT8U lab4WaveToggle = 0;
-/*Private function prototype*/
-static void lab4ControlTask(void);
+static SECURE_STATES lab5CurrentState = DISARMED;
+static INT8U lab5WaveToggle = 0;
+/*Private function prototypes*/
+static void lab5ControlTask(void);
+static void lab5StateTransition(SECURE_STATES state, INT16U sense);
 
 void main(void){
     INT16U checksum;
@@ -39,71 +44,121 @@ void main(void){
     LcdDispInit();
     KeyInit();
     GpioDBugBitsInit();
+    TSIInit();
+    LEDInit();
+    AlarmWaveInit();
     checksum = MemChkSum((INT8U *)START_ADDR, (INT8U *)END_ADDR);
     LcdCursorMove(LCD_ROW_2, LCD_COL_1);
     LcdCursorMode(0,0);
     LcdDispHexWord((const INT32U)checksum, 4);
     LcdCursorMove(LCD_ROW_1, LCD_COL_1);
-    LcdDispString((INT8C *const)lab4AlarmOff);
-    AlarmWaveInit();
+    LcdCursorMove(LCD_ROW_1, LCD_COL_1);
+    LcdDispString((INT8C *const)lab5Disarmed);
     while(1){                                                                   /*time slice super loop*/
         SysTickWaitEvent(WAITDELAY);
-        lab4ControlTask();
+        lab5ControlTask();
         KeyTask();
+        TSITask();
+        LEDTask();
     }
 }
-/* lab4Control task
- * This private function has no parameters and returns nothing. Its purpose is to handle input read by the KeyTask
- * determine the current state, display states and set the output mode in the AlarmWave module
+
+/* lab5ControlTask - has no parameters and returns nothing. Is meant to be used in a timeslice scheduler for lab5 security system control.
+ * It will make appropriate state transitions based on sensors and keypad presses and control LED's and DAC0 output.
  * */
-static void lab4ControlTask(void){
-    INT8C kchar;
+static void lab5ControlTask(void){
     static INT8U control_counter = 0;
+    INT8C kchar;
+    INT16U sense;
     DB1_TURN_ON();
     control_counter++;
-    if(control_counter>=5){                                                   /*execute code every 5th time slice*/
-        kchar = KeyGet();
+    if(control_counter>=5){                                                 //every 5 time slices (50ms)
         control_counter = 0;
-        switch(lab4CurrentState){
-            case ALARM_OFF:
-                if(kchar == ACODE){
-                    lab4WaveToggle = 0;
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab4AlarmOn);
-                    AlarmWaveSetMode(0);
-                    lab4CurrentState = ALARM_ON;
-                }
-                else{}
-                break;
-            case ALARM_ON:
+        kchar = KeyGet();                                                   //key holds keys pressed
+        sense = TSIGetSensorFlags();                                        //sense holds which sensors pressed
+        switch(lab5CurrentState){
+            case ALARM:
                 if(kchar == DCODE){
-                    LcdDispLineClear(LCD_ROW_1);
-                    LcdDispString((INT8C *const)lab4AlarmOff);
-                    AlarmWaveSetMode(1);
-                    lab4CurrentState = ALARM_OFF;
+                    lab5WaveToggle = 0;
+                    lab5StateTransition(DISARMED, sense);
                 }
-                else{                                                       /*in alarm on enable/disable with period of 1s*/
-                    lab4WaveToggle++;
-                    if(lab4WaveToggle<=10){
+                else{
+                    LEDSetState(sense);
+                    LEDSetPeriod(5);
+                    lab5WaveToggle++;
+                    if(lab5WaveToggle<=10){
                         AlarmWaveSetMode(0);
                     }
                     else{
                         AlarmWaveSetMode(1);
-                        if(lab4WaveToggle == 20){
-                            lab4WaveToggle = 0;
+                        if(lab5WaveToggle == 20){
+                            lab5WaveToggle = 0;
                         }
                         else{}
                     }
                 }
                 break;
+            case ARMED:
+                if(kchar == DCODE){
+                    lab5StateTransition(DISARMED, sense);
+                }
+                else if(sense != TSI_BOTH_OFF){
+                    lab5StateTransition(ALARM, sense);
+                }
+                else{
+                    LEDSetState(TSI_BOTH_ON);
+                    LEDSetPeriod(25);
+                }
+                break;
+            case DISARMED:
+                if(kchar == ACODE){
+                    lab5StateTransition(ARMED, sense);
+                }
+                else{
+                    LEDSetState(sense);
+                    LEDSetPeriod(25);
+                }
+                break;
             default:
-                lab4CurrentState = ALARM_OFF;
                 break;
         }
     }
+    else{}
     DB1_TURN_OFF();
 }
 
-
-
-
+/* lab5StateTranisition takes a SECURE_STATES type and an INT16U as a parameter and returns nothing.
+ *  Based on the state it will control LED's and DAC0 output based on special behaviour for switching states*/
+static void lab5StateTransition(SECURE_STATES state, INT16U sense){
+    switch(state){
+        case ALARM:
+            lab5CurrentState = ALARM;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Alarm);
+            LEDSetPeriod(0);
+            LEDSetState(sense);
+            AlarmWaveSetMode(0);
+            LEDInOffset(0);
+            break;
+        case ARMED:
+            lab5CurrentState = ARMED;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Armed);
+            LEDSetState(LED_OFFSET);
+            LEDSetPeriod(0);
+            AlarmWaveSetMode(1);
+            LEDInOffset(1);
+            break;
+        case DISARMED:
+            lab5CurrentState = DISARMED;
+            LcdDispLineClear(LCD_ROW_1);
+            LcdDispString((INT8C *const)lab5Disarmed);
+            LEDSetPeriod(0);
+            LEDSetState(sense);
+            AlarmWaveSetMode(1);
+            LEDInOffset(0);
+            break;
+        default:
+            break;
+    }
+}
