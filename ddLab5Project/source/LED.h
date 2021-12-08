@@ -31,5 +31,9 @@ void LEDSetState(INT16U);
  * LEDs will have 100ms period
  * */
 void LEDSetPeriod(INT8U);
+/* LEDInOffset - takes an INT8U as parameter for setting if LED's should be in offset. If 1 is passed they will hold in offset
+ * if anything else is passed they will be synchronized together.
+ * */
+void LEDInOffset(INT8U);
 
 #endif

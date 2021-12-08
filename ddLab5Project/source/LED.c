@@ -16,6 +16,8 @@ typedef enum {D8, D9, BOTH, OFF, OFFSET}LED_STATES;
 static LED_STATES ledCurrentState = OFF;
 static INT8U ledDelayPeriod = 50;                                                             //delay in 10's on ms
 static LED_STATES ledLastState = OFF;
+static INT8U ledCount = 0;
+static INT8U ledInOffset = 0;
 /* LEDSetState - returns nothing and takes an INT16U to determine the state of LED's. The parameters
  * correspond to the defined constants for TSI states, returned from the TSI module. Note this function may
  * be used outside of Lab5, but attention should be paid to the parameters.
@@ -24,7 +26,7 @@ static LED_STATES ledLastState = OFF;
  * */
 void LEDSetState(INT16U active){
     if(active==TSI_11_ON){
-        if(ledDelayPeriod == 10){                                                    //In alarm mode we'll latch
+        if(ledDelayPeriod == 5){                                                    //In alarm mode we'll latch
             if(ledCurrentState == D8 || ledCurrentState == BOTH){
                 ledCurrentState = BOTH;
             }
@@ -37,7 +39,7 @@ void LEDSetState(INT16U active){
         }
     }
     else if(active==TSI_12_ON){
-        if(ledDelayPeriod == 10){                                                   //In alarm mode we'll latch
+        if(ledDelayPeriod == 5){                                                   //In alarm mode we'll latch
             if(ledCurrentState == D9 || ledCurrentState == BOTH){
                 ledCurrentState = BOTH;
             }
@@ -53,7 +55,7 @@ void LEDSetState(INT16U active){
         ledCurrentState = BOTH;
     }
     else if(active==TSI_BOTH_OFF){
-        if(ledDelayPeriod == 10){                                                   //LED's are never off in alarm mode
+        if(ledDelayPeriod == 5){                                                   //LED's are never off in alarm mode
         }
         else{
             ledCurrentState = OFF;
@@ -72,6 +74,12 @@ void LEDSetState(INT16U active){
 void LEDSetPeriod(INT8U period){
     ledDelayPeriod = period;
 }
+/* LEDInOffset - takes an INT8U as parameter for setting if LED's should be in offset. If 1 is passed they will hold in offset
+ * if anything else is passed they will be synchronized together.
+ * */
+void LEDInOffset(INT8U offset){
+    ledInOffset = offset;
+}
 
 /* LEDInit - no returns or parameters. Initializes LED8 and LED9
  * */
@@ -84,16 +92,15 @@ void LEDInit(void){
  * based on ledCurrentState and ledDelayPeriod. It also resets the LED's on a state change as long as we haven't set a default offset
  * */
 void LEDTask(void){
-    static INT8U led_count = 0;
     DB4_TURN_ON();
-    if(ledLastState!=ledCurrentState && ledDelayPeriod!=25){                    //reset LED's when we are switching unless we've set a default offset
+    if(ledLastState!=ledCurrentState && ledInOffset!=1){                    //reset LED's when we are switching unless we've set a default offset
         LED9_TURN_OFF();
         LED8_TURN_OFF();
     }
     else{}
     ledLastState = ledCurrentState;
-    if(led_count>=ledDelayPeriod){
-        led_count = 0;
+    if(ledCount>=ledDelayPeriod){
+        ledCount = 0;
         switch(ledCurrentState){
             case D8:
                 LED8_TOGGLE();
@@ -114,6 +121,6 @@ void LEDTask(void){
         }
     }
     else{}
-    led_count++;
+    ledCount++;
     DB4_TURN_OFF();
 }

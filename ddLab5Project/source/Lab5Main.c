@@ -18,7 +18,6 @@
 #include "K65TWR_TSI.h"
 #include "AlarmWave.h"
 
-
 /*Defined Constants*/
 #define WAITDELAY 10
 #define ACODE 0x11
@@ -85,7 +84,7 @@ static void lab5ControlTask(void){
                 }
                 else{
                     LEDSetState(sense);
-                    LEDSetPeriod(10);
+                    LEDSetPeriod(5);
                     lab5WaveToggle++;
                     if(lab5WaveToggle<=10){
                         AlarmWaveSetMode(0);
@@ -117,7 +116,7 @@ static void lab5ControlTask(void){
                 }
                 else{
                     LEDSetState(sense);
-                    LEDSetPeriod(50);
+                    LEDSetPeriod(25);
                 }
                 break;
             default:
@@ -136,9 +135,10 @@ static void lab5StateTransition(SECURE_STATES state, INT16U sense){
             lab5CurrentState = ALARM;
             LcdDispLineClear(LCD_ROW_1);
             LcdDispString((INT8C *const)lab5Alarm);
-            LEDSetState(sense);
             LEDSetPeriod(0);
+            LEDSetState(sense);
             AlarmWaveSetMode(0);
+            LEDInOffset(0);
             break;
         case ARMED:
             lab5CurrentState = ARMED;
@@ -147,14 +147,16 @@ static void lab5StateTransition(SECURE_STATES state, INT16U sense){
             LEDSetState(LED_OFFSET);
             LEDSetPeriod(0);
             AlarmWaveSetMode(1);
+            LEDInOffset(1);
             break;
         case DISARMED:
             lab5CurrentState = DISARMED;
             LcdDispLineClear(LCD_ROW_1);
             LcdDispString((INT8C *const)lab5Disarmed);
-            LEDSetState(sense);
             LEDSetPeriod(0);
+            LEDSetState(sense);
             AlarmWaveSetMode(1);
+            LEDInOffset(0);
             break;
         default:
             break;
