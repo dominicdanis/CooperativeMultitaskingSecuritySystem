@@ -78,7 +78,7 @@ static void AlarmWavePitInit(void){
  * DAC dependent on 'Current' - the variable holding the state of output we want
  * */
 void PIT0_IRQHandler(void){
-    DB3_TURN_ON();
+    DB3_TURN_ON(); //>>>DB3 not here -1req
     PIT->CHANNEL[0].TFLG = PIT_TFLG_TIF(1);
     switch(Current){                                                        /*write different values to DAC depending on state*/
     case SINE:

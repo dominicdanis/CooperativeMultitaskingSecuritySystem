@@ -6,8 +6,9 @@
 * Uses several modules written by Todd Morton
 * Author: Dominic Danis Last Edit: 12/5/2021
 *******************************************************************************/
+//>>>Sinewave on-off -1req
 #include "MCUType.h"
-#include "BasicIO.h"
+#include "BasicIO.h" //>>>not dependent
 #include "K65TWR_ClkCfg.h"
 #include "MemoryTools.h"
 #include "K65TWR_GPIO.h"
